@@ -1,0 +1,72 @@
+#include <stdio.h>
+#define N 20
+
+__global__ void oddEvenTS(int *data, int n, int phase) {
+
+int tid = threadIdx.x + blockIdx.x * blockDim.x;
+if (tid < n - 1) {
+if (phase % 2 == 0 && (tid % 2 == 0)) {
+if (data[tid] > data[tid + 1]) {
+int temp = data[tid];
+data[tid] = data[tid + 1];
+data[tid + 1] = temp;
+}
+}
+if (phase % 2 == 1 && (tid % 2 == 1)) {
+if (data[tid] > data[tid + 1]) {
+int temp = data[tid];
+data[tid] = data[tid + 1];
+data[tid + 1] = temp;
+}
+}
+}
+}
+
+int main() {
+int h_data[N] = {9,4,8,3,1,2,7,6,5,0,12,57,89,65,42,36,71,99,87,20};
+int *d_data;
+printf("Original array: ");
+for (int i = 0; i < N; i++)
+printf("%d ", h_data[i]);
+printf("\n");
+
+cudaMalloc((void **)&d_data, N * sizeof(int));
+cudaMemcpy(d_data, h_data, N * sizeof(int), cudaMemcpyHostToDevice);
+
+cudaEvent_t start, stop;
+cudaEventCreate(&start);
+cudaEventCreate(&stop);
+
+int threadsPerBlock = 10;
+int blocksPerGrid = (N * N + threadsPerBlock - 1) / threadsPerBlock;
+
+cudaEventRecord(start);
+
+for (int phase = 0; phase < N; phase++) {
+oddEvenTS<<<blocksPerGrid, threadsPerBlock>>>(d_data, N, phase);
+cudaDeviceSynchronize();
+}
+
+cudaEventRecord(stop);
+cudaEventSynchronize(stop);
+float elapsedTime = 0;
+cudaEventElapsedTime(&elapsedTime, start, stop);
+
+cudaMemcpy(h_data, d_data, N * sizeof(int), cudaMemcpyDeviceToHost);
+
+printf("Sorted array: ");
+for (int i = 0; i < N; i++)
+printf("%d ", h_data[i]);
+
+printf("\n");
+
+printf("\n===== COMPLEXITY ANALYSIS =====\n");
+printf("Time Complexity (Parallel) : O(N) phases ≈ %d phases\n", N);
+printf("Cost Complexity : O(N * N) = O(N^2) ≈ %d operations\n", N * N);
+printf("Actual Execution Time : %.5f ms\n", elapsedTime);
+
+cudaFree(d_data);
+cudaEventDestroy(start);
+cudaEventDestroy(stop);
+return 0;
+}
