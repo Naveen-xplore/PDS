@@ -1,0 +1,58 @@
+#include <mpi.h>
+#include <stdio.h>
+#include <string.h>
+
+int main(int argc, char* argv[]) {
+int rank, size;
+char message[100];
+char input_buffer[100];
+int i;
+double start_time, end_time, elapsed_time;
+
+MPI_Init(&argc, &argv);
+MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+MPI_Barrier(MPI_COMM_WORLD);
+start_time = MPI_Wtime();
+
+if (rank == 0) {
+printf("Enter message to broadcast: ");
+fflush(stdout);
+
+if (fgets(input_buffer, 100, stdin) != NULL) {
+input_buffer[strcspn(input_buffer, "\n")] = '\0';
+} else {
+strcpy(input_buffer, "Hello Clients, this is a broadcast from Server!");
+}
+strcpy(message, input_buffer);
+
+MPI_Bcast(message, 100, MPI_CHAR, 0, MPI_COMM_WORLD);
+printf("Server (rank %d) broadcasted: %s\n", rank, message);
+
+for (i = 1; i < size; i++) {
+char response[100];
+MPI_Recv(response, 100, MPI_CHAR, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+printf("Server received response from client %d: %s\n", i, response);
+}
+} else {
+MPI_Bcast(message, 100, MPI_CHAR, 0, MPI_COMM_WORLD);
+printf("Client (rank %d) received: %s\n", rank, message);
+
+char response[100];
+sprintf(response, "Hello Server, client %d received your message!", rank);
+MPI_Send(response, strlen(response) + 1, MPI_CHAR, 0, 0, MPI_COMM_WORLD);
+}
+
+MPI_Barrier(MPI_COMM_WORLD);
+end_time = MPI_Wtime();
+
+if (rank == 0) {
+elapsed_time = end_time - start_time;
+printf("\n--- All processes completed ---\n");
+printf("Total execution time: %f seconds\n", elapsed_time);
+}
+
+MPI_Finalize();
+return 0;
+}
